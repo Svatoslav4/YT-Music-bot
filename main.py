@@ -47,7 +47,7 @@ async def search_music(message: types.Message, state: FSMContext):
     await state.clear()  # очищаємо стан
     await message.answer(f"🎵 Шукаю: {query}\n⏳ Завантажую аудіо...")
 
-    # Пошук на YouTube
+    # object search youtube
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={Api_Token}&maxResults=1"
     res = requests.get(url).json()
 
@@ -61,12 +61,12 @@ async def search_music(message: types.Message, state: FSMContext):
     thumbnail_url = video["snippet"]["thumbnails"]["high"]["url"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Завантаження обкладинки
+    # Donwload
     thumbnail_path = "thumb.jpg"
     with open(thumbnail_path, "wb") as f:
         f.write(requests.get(thumbnail_url).content)
 
-    # yt-dlp
+    # yt-dlp settings
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'song.%(ext)s',
