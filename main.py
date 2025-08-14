@@ -4,28 +4,48 @@ import requests
 import yt_dlp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import FSInputFile
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
+from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from Bot_api import Bot_Token
 from YT_api import Api_Token
 
-# Шлях до ffmpeg
 FFMPEG_PATH = r"E:\Sound Music\ffmpeg-2025-07-10-git-82aeee3c19-essentials_build\bin\ffmpeg.exe"
 
 bot = Bot(token=Bot_Token)
 dp = Dispatcher()
 
+class MusicStates(StatesGroup):
+    waiting_for_track_name = State()
+
+#Reply button
+reply_kb = ReplyKeyboardMarkup(
+    keyboard=[[KeyboardButton(text="Search Track")]],
+    resize_keyboard=True,
+    one_time_keyboard=True
+)
+
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer(
-        "Привіт! Напиши /music <назва пісні>, і я відправлю її у Telegram 🎵"
+        "Привіт! Натисни кнопку, щоб шукати пісню 🎵",
+        reply_markup=reply_kb
     )
 
-@dp.message(Command("music"))
-async def search_music(message: types.Message):
-    query = message.text.replace("/music", "").strip()
+@dp.message(lambda message: message.text == "Search Track")
+async def ask_track_name(message: types.Message, state: FSMContext):
+    await message.answer("Введіть назву пісні:")
+    await state.set_state(MusicStates.waiting_for_track_name)
+
+@dp.message(MusicStates.waiting_for_track_name)
+async def search_music(message: types.Message, state: FSMContext):
+    query = message.text.strip()
     if not query:
-        await message.answer("Введи назву пісні після /music")
+        await message.answer("Введіть назву пісні ще раз:")
         return
+
+    await state.clear()  # очищаємо стан
+    await message.answer(f"🎵 Шукаю: {query}\n⏳ Завантажую аудіо...")
 
     # Пошук на YouTube
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={Api_Token}&maxResults=1"
@@ -41,15 +61,12 @@ async def search_music(message: types.Message):
     thumbnail_url = video["snippet"]["thumbnails"]["high"]["url"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    await message.answer(f"🎵 Знайшов: {title}\n⏳ Завантажую аудіо...")
-
     # Завантаження обкладинки
     thumbnail_path = "thumb.jpg"
-    thumb_data = requests.get(thumbnail_url).content
     with open(thumbnail_path, "wb") as f:
-        f.write(thumb_data)
+        f.write(requests.get(thumbnail_url).content)
 
-    # Налаштування yt-dlp з ffmpeg
+    # yt-dlp
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'song.%(ext)s',
@@ -62,7 +79,6 @@ async def search_music(message: types.Message):
         'quiet': True
     }
 
-    # Завантаження аудіо
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             ydl.download([video_url])
@@ -70,7 +86,6 @@ async def search_music(message: types.Message):
         await message.answer(f"Помилка при завантаженні: {e}")
         return
 
-    # Відправка аудіо в Telegram
     if os.path.exists("song.mp3") and os.path.exists("thumb.jpg"):
         audio_file = FSInputFile("song.mp3")
         thumb_file = FSInputFile("thumb.jpg")
@@ -79,10 +94,9 @@ async def search_music(message: types.Message):
             chat_id=message.chat.id,
             audio=audio_file,
             title=title,
-            thumbnail=thumb_file  # правильно, не 'thumb'
+            thumbnail=thumb_file
         )
 
-        # Видалення тимчасових файлів
         os.remove("song.mp3")
         os.remove("thumb.jpg")
     else:
@@ -90,4 +104,3 @@ async def search_music(message: types.Message):
 
 if __name__ == "__main__":
     asyncio.run(dp.start_polling(bot))
-
