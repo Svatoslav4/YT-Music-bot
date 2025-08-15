@@ -7,15 +7,15 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from fastapi import FastAPI, Request
-import asyncio
 
 FFMPEG_PATH = "/usr/bin/ffmpeg"
 
+# ПЕРЕКОНАЙСЯ, ЩО ЗМІННІ СЕРЕДОВИЩА ПРАВИЛЬНІ
 TOKEN = os.getenv("Bot_Token")
 YT_API = os.getenv("Api_Token")
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
@@ -104,10 +104,10 @@ app = FastAPI()
 async def webhook(req: Request):
     data = await req.json()
     update = types.Update(**data)
-    await dp.feed_update(update)
+    await dp.update_router.feed_update(update)  # правильний виклик
     return {"ok": True}
 
-# Додатковий маршрут для перевірки через браузер
+# Перевірка через браузер
 @app.get("/")
 async def root():
     return {"status": "Бот працює ✅"}
