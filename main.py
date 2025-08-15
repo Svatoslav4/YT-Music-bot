@@ -11,8 +11,8 @@ import asyncio
 
 FFMPEG_PATH = "/usr/bin/ffmpeg"
 
-TOKEN = os.getenv("BOT_TOKEN")
-YT_API = os.getenv("YT_API")
+TOKEN = os.getenv("Bot_Token ")
+YT_API = os.getenv("Api_Token")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
