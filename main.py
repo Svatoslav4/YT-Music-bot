@@ -101,10 +101,12 @@ async def search_music(message: types.Message, state: FSMContext):
 app = Flask(__name__)
 
 @app.route(f"/webhook/{TOKEN}", methods=["POST"])
-def webhook():
+async def webhook():
     data = request.get_json()
-    asyncio.run(dp.process_update(types.Update(**data)))
+    update = types.Update(**data)
+    await dp.process_update(update)
     return "ok", 200
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
