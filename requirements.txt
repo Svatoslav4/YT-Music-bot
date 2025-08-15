@@ -1,5 +1,5 @@
-aiogram
-flask
+fastapi
+uvicorn
 yt-dlp
+aiogram==3.21.0
 requests
-hypercorn
