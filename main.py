@@ -1,5 +1,6 @@
 import os
-import requests
+import aiohttp
+import asyncio
 import yt_dlp
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -7,7 +8,6 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from fastapi import FastAPI, Request
-import asyncio
 
 FFMPEG_PATH = "/usr/bin/ffmpeg"
 
@@ -52,7 +52,10 @@ async def search_music(message: types.Message, state: FSMContext):
     await message.answer(f"🎵 Шукаю: {query}\n⏳ Завантажую аудіо...")
 
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={YT_API}&maxResults=1"
-    res = requests.get(url).json()
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            res = await resp.json()
 
     if not res.get("items"):
         await message.answer("Пісню не знайдено 😔")
@@ -64,10 +67,13 @@ async def search_music(message: types.Message, state: FSMContext):
     thumbnail_url = video["snippet"]["thumbnails"]["high"]["url"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Завантаження прев’ю
+    # Завантаження прев’ю асинхронно
     thumbnail_path = "thumb.jpg"
-    with open(thumbnail_path, "wb") as f:
-        f.write(requests.get(thumbnail_url).content)
+    async with aiohttp.ClientSession() as session:
+        async with session.get(thumbnail_url) as resp:
+            content = await resp.read()
+            with open(thumbnail_path, "wb") as f:
+                f.write(content)
 
     # Завантаження аудіо
     ydl_opts = {
@@ -112,14 +118,14 @@ app = FastAPI()
 @app.post(f"/webhook/{TOKEN}")
 async def webhook(req: Request):
     data = await req.json()
-    print("Incoming update:", data)  # Лог для дебагу
+    print("Incoming update:", data)
     update = types.Update(**data)
-    await dp.feed_update(update)  # Aiogram 3
+    await dp.update_router.feed_update(update)  # Правильний виклик для Aiogram 3.x
     return {"ok": True}
 
 @app.on_event("startup")
 async def on_startup():
-    # Встановлюємо webhook автоматично при старті
+    # Встановлюємо webhook при старті
     await bot.delete_webhook()
     await bot.set_webhook(WEBHOOK_URL)
     print("Webhook встановлено:", WEBHOOK_URL)
