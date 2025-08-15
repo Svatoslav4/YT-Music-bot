@@ -7,38 +7,40 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from fastapi import FastAPI, Request
+import asyncio
 
 FFMPEG_PATH = "/usr/bin/ffmpeg"
 
+# Змінні середовища
 TOKEN = os.getenv("Bot_Token")
 YT_API = os.getenv("Api_Token")
+WEBHOOK_URL = f"https://yt-music-bot-xf92.onrender.com/webhook/{TOKEN}"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Стан бота для очікування назви треку
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
 
-# Кнопка для пошуку
+# Клавіатура
 reply_kb = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="Search Track")]],
     resize_keyboard=True,
     one_time_keyboard=True
 )
 
-# Старт бота
+# Команда /start
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer("Привіт! Натисни кнопку, щоб шукати пісню 🎵", reply_markup=reply_kb)
 
-# Запит назви треку
+# Кнопка Search Track
 @dp.message(lambda message: message.text == "Search Track")
 async def ask_track_name(message: types.Message, state: FSMContext):
     await message.answer("Введіть назву пісні:")
     await state.set_state(MusicStates.waiting_for_track_name)
 
-# Пошук та відправка треку
+# Обробка введеної назви треку
 @dp.message(MusicStates.waiting_for_track_name)
 async def search_music(message: types.Message, state: FSMContext):
     query = message.text.strip()
@@ -49,9 +51,9 @@ async def search_music(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(f"🎵 Шукаю: {query}\n⏳ Завантажую аудіо...")
 
-    # Пошук на YouTube
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={YT_API}&maxResults=1"
     res = requests.get(url).json()
+
     if not res.get("items"):
         await message.answer("Пісню не знайдено 😔")
         return
@@ -62,7 +64,7 @@ async def search_music(message: types.Message, state: FSMContext):
     thumbnail_url = video["snippet"]["thumbnails"]["high"]["url"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Завантаження обкладинки
+    # Завантаження прев’ю
     thumbnail_path = "thumb.jpg"
     with open(thumbnail_path, "wb") as f:
         f.write(requests.get(thumbnail_url).content)
@@ -106,13 +108,23 @@ async def search_music(message: types.Message, state: FSMContext):
 # FastAPI
 app = FastAPI()
 
+# Webhook
 @app.post(f"/webhook/{TOKEN}")
 async def webhook(req: Request):
     data = await req.json()
+    print("Incoming update:", data)  # Лог для дебагу
     update = types.Update(**data)
-    await dp.feed_update(update)  # Робочий виклик для Aiogram 3
+    await dp.feed_update(update)  # Aiogram 3
     return {"ok": True}
 
+@app.on_event("startup")
+async def on_startup():
+    # Встановлюємо webhook автоматично при старті
+    await bot.delete_webhook()
+    await bot.set_webhook(WEBHOOK_URL)
+    print("Webhook встановлено:", WEBHOOK_URL)
+
+# Перевірка через браузер
 @app.get("/")
 async def root():
     return {"status": "Бот працює ✅"}
