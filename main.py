@@ -14,27 +14,31 @@ TOKEN = os.getenv("Bot_Token")
 YT_API = os.getenv("Api_Token")
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher()  # без аргументів
+dp = Dispatcher()
 
+# Стан бота для очікування назви треку
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
 
+# Кнопка для пошуку
 reply_kb = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="Search Track")]],
     resize_keyboard=True,
     one_time_keyboard=True
 )
 
-# --- Хендлери Aiogram ---
+# Старт бота
 @dp.message(Command("start"))
 async def start(message: types.Message):
     await message.answer("Привіт! Натисни кнопку, щоб шукати пісню 🎵", reply_markup=reply_kb)
 
+# Запит назви треку
 @dp.message(lambda message: message.text == "Search Track")
 async def ask_track_name(message: types.Message, state: FSMContext):
     await message.answer("Введіть назву пісні:")
     await state.set_state(MusicStates.waiting_for_track_name)
 
+# Пошук та відправка треку
 @dp.message(MusicStates.waiting_for_track_name)
 async def search_music(message: types.Message, state: FSMContext):
     query = message.text.strip()
@@ -48,7 +52,6 @@ async def search_music(message: types.Message, state: FSMContext):
     # Пошук на YouTube
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={YT_API}&maxResults=1"
     res = requests.get(url).json()
-
     if not res.get("items"):
         await message.answer("Пісню не знайдено 😔")
         return
@@ -87,25 +90,27 @@ async def search_music(message: types.Message, state: FSMContext):
     if os.path.exists("song.mp3") and os.path.exists("thumb.jpg"):
         audio_file = FSInputFile("song.mp3")
         thumb_file = FSInputFile("thumb.jpg")
+
         await bot.send_audio(
             chat_id=message.chat.id,
             audio=audio_file,
             title=title,
             thumbnail=thumb_file
         )
+
         os.remove("song.mp3")
         os.remove("thumb.jpg")
     else:
         await message.answer("Не вдалося завантажити пісню 😔")
 
-# --- FastAPI ---
+# FastAPI
 app = FastAPI()
 
 @app.post(f"/webhook/{TOKEN}")
 async def webhook(req: Request):
     data = await req.json()
     update = types.Update(**data)
-    await dp.feed_update(update)  # правильно для Aiogram 3
+    await dp.feed_update(update)  # Робочий виклик для Aiogram 3
     return {"ok": True}
 
 @app.get("/")
