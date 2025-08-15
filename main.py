@@ -19,6 +19,7 @@ WEBHOOK_URL = f"https://yt-music-bot-xf92.onrender.com/webhook/{TOKEN}"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+# FSM для станів
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
 
@@ -75,7 +76,7 @@ async def search_music(message: types.Message, state: FSMContext):
             with open(thumbnail_path, "wb") as f:
                 f.write(content)
 
-    # Завантаження аудіо
+    # Завантаження аудіо через yt_dlp
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'song.%(ext)s',
@@ -118,9 +119,8 @@ app = FastAPI()
 @app.post(f"/webhook/{TOKEN}")
 async def webhook(req: Request):
     data = await req.json()
-    print("Incoming update:", data)
     update = types.Update(**data)
-    await dp.update_router.feed_update(update)  # Правильний виклик для Aiogram 3.x
+    await dp.feed_update(update)  # ✅ Правильний виклик для Aiogram 3.x
     return {"ok": True}
 
 @app.on_event("startup")
