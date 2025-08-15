@@ -2,23 +2,24 @@ import asyncio
 import os
 import requests
 import yt_dlp
+from flask import Flask, request
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
-from Bot_api import Bot_Token
-from YT_api import Api_Token
 
-FFMPEG_PATH = r"E:\Sound Music\ffmpeg-2025-07-10-git-82aeee3c19-essentials_build\bin\ffmpeg.exe"
+FFMPEG_PATH = "/usr/bin/ffmpeg"  # Render має свій ffmpeg (або можна додати пакет)
 
-bot = Bot(token=Bot_Token)
+TOKEN = os.getenv("BOT_TOKEN")
+YT_API = os.getenv("YT_API")
+
+bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
 
-#Reply button
 reply_kb = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="Search Track")]],
     resize_keyboard=True,
@@ -27,10 +28,7 @@ reply_kb = ReplyKeyboardMarkup(
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    await message.answer(
-        "Привіт! Натисни кнопку, щоб шукати пісню 🎵",
-        reply_markup=reply_kb
-    )
+    await message.answer("Привіт! Натисни кнопку, щоб шукати пісню 🎵", reply_markup=reply_kb)
 
 @dp.message(lambda message: message.text == "Search Track")
 async def ask_track_name(message: types.Message, state: FSMContext):
@@ -44,11 +42,10 @@ async def search_music(message: types.Message, state: FSMContext):
         await message.answer("Введіть назву пісні ще раз:")
         return
 
-    await state.clear()  # очищаємо стан
+    await state.clear()
     await message.answer(f"🎵 Шукаю: {query}\n⏳ Завантажую аудіо...")
 
-    # object search youtube
-    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={Api_Token}&maxResults=1"
+    url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={YT_API}&maxResults=1"
     res = requests.get(url).json()
 
     if not res.get("items"):
@@ -61,12 +58,10 @@ async def search_music(message: types.Message, state: FSMContext):
     thumbnail_url = video["snippet"]["thumbnails"]["high"]["url"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Donwload
     thumbnail_path = "thumb.jpg"
     with open(thumbnail_path, "wb") as f:
         f.write(requests.get(thumbnail_url).content)
 
-    # yt-dlp settings
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'song.%(ext)s',
@@ -102,5 +97,14 @@ async def search_music(message: types.Message, state: FSMContext):
     else:
         await message.answer("Не вдалося завантажити пісню 😔")
 
+# Flask для Render
+app = Flask(__name__)
+
+@app.route(f"/webhook/{TOKEN}", methods=["POST"])
+def webhook():
+    data = request.get_json()
+    asyncio.run(dp.process_update(types.Update(**data)))
+    return "ok", 200
+
 if __name__ == "__main__":
-    asyncio.run(dp.start_polling(bot))
+    app.run(host="0.0.0.0", port=5000)
