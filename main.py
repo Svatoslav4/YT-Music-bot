@@ -15,7 +15,7 @@ TOKEN = os.getenv("Bot_Token")
 YT_API = os.getenv("Api_Token")
 
 bot = Bot(token=TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
