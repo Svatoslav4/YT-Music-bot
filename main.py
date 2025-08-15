@@ -104,7 +104,7 @@ app = FastAPI()
 async def webhook(req: Request):
     data = await req.json()
     update = types.Update(**data)
-    await dp.process_update(update)
+    await dp.feed_update(update)
     return {"ok": True}
 
 # Додатковий маршрут для перевірки через браузер
