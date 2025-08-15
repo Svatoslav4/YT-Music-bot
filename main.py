@@ -1,18 +1,18 @@
-import asyncio
 import os
 import requests
 import yt_dlp
-from flask import Flask, request
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
+from fastapi import FastAPI, Request
+import asyncio
 
-FFMPEG_PATH = "/usr/bin/ffmpeg"  # Render має свій ffmpeg (або можна додати пакет)
+FFMPEG_PATH = "/usr/bin/ffmpeg"
 
-TOKEN = os.getenv("Bot_Token")
-YT_API = os.getenv("Api_Token")
+TOKEN = os.getenv("BOT_TOKEN")
+YT_API = os.getenv("YT_API")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -97,16 +97,17 @@ async def search_music(message: types.Message, state: FSMContext):
     else:
         await message.answer("Не вдалося завантажити пісню 😔")
 
-# Flask для Render
-app = Flask(__name__)
+# FastAPI для Render
+app = FastAPI()
 
-@app.route(f"/webhook/{TOKEN}", methods=["POST"])
-async def webhook():
-    data = request.get_json()
+@app.post(f"/webhook/{TOKEN}")
+async def webhook(req: Request):
+    data = await req.json()
     update = types.Update(**data)
     await dp.process_update(update)
-    return "ok", 200
+    return {"ok": True}
 
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+# Додатковий маршрут для перевірки через браузер
+@app.get("/")
+async def root():
+    return {"status": "Бот працює ✅"}
