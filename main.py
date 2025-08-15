@@ -10,6 +10,7 @@ from aiogram.types import FSInputFile, ReplyKeyboardMarkup, KeyboardButton
 from Bot_api import Bot_Token
 from YT_api import Api_Token
 
+#Source ffmpeg
 FFMPEG_PATH = r"E:\Sound Music\ffmpeg-2025-07-10-git-82aeee3c19-essentials_build\bin\ffmpeg.exe"
 
 bot = Bot(token=Bot_Token)
@@ -18,7 +19,7 @@ dp = Dispatcher()
 class MusicStates(StatesGroup):
     waiting_for_track_name = State()
 
-# Reply клавіатура з кнопкою "Search Track"
+# Reply keyboard with button "Search Track"
 reply_kb = ReplyKeyboardMarkup(
     keyboard=[[KeyboardButton(text="Search Track")]],
     resize_keyboard=True,
@@ -44,10 +45,10 @@ async def search_music(message: types.Message, state: FSMContext):
         await message.answer("Введіть назву пісні ще раз:")
         return
 
-    await state.clear()  # очищаємо стан
+    await state.clear()  # clear status
     await message.answer(f"🎵 Шукаю: {query}\n⏳ Завантажую аудіо...")
 
-    # Пошук на YouTube
+    # Search on youtube
     url = f"https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q={query}&key={Api_Token}&maxResults=1"
     res = requests.get(url).json()
 
@@ -61,12 +62,12 @@ async def search_music(message: types.Message, state: FSMContext):
     thumbnail_url = video["snippet"]["thumbnails"]["high"]["url"]
     video_url = f"https://www.youtube.com/watch?v={video_id}"
 
-    # Завантаження обкладинки
+    # Loading Cover
     thumbnail_path = "thumb.jpg"
     with open(thumbnail_path, "wb") as f:
         f.write(requests.get(thumbnail_url).content)
 
-    # yt-dlp
+    # yt-dlp settings
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': 'song.%(ext)s',
